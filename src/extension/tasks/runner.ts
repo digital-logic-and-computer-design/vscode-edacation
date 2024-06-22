@@ -152,8 +152,12 @@ export class NativeTaskRunner extends TaskRunner {
             );
             return;
         }
+        const nativeRunnersPath = vscode.workspace.getConfiguration('edacation').get('pathToNativeRunners');
+        this.println(`Using native runners path: ${String(nativeRunnersPath)}`);
+        const command = (nativeRunnersPath == undefined || nativeRunnersPath == '') ?  ctx.command : String(nativeRunnersPath) + ctx.command;
+        this.println(`Running command: ${command} ${ctx.args.join(' ')}`);
 
-        const proc = child_process.spawn(ctx.command, ctx.args, {
+        const proc = child_process.spawn(command, ctx.args, {
             cwd: ctx.project.getRoot().fsPath
         });
 
