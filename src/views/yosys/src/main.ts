@@ -83,7 +83,6 @@ export class View {
     }
 
     private findViewer(): BaseViewer<YosysFile['data']> {
-        console.log("findViewer 6")
         if (!this.state.document) {
             throw new Error('No data to find viewer!');
         }
