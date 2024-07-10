@@ -1,15 +1,17 @@
 import type {yosys2digitaljs} from 'yosys2digitaljs';
 
 export interface YosysModuleStats {
-    num_wires: number;
-    num_wire_bits: number;
-    num_pub_wires: number;
-    num_pub_wire_bits: number;
-    num_memories: number;
-    num_memory_bits: number;
-    num_processes: number;
     num_cells: number;
     num_cells_by_type: Record<string, number>;
+    num_memories: number;
+    num_memory_bits: number;
+    num_ports: number;
+    num_port_bits: number;
+    num_processes: number;
+    num_pub_wires: number;
+    num_pub_wire_bits: number;
+    num_wire_bits: number;
+    num_wires: number;
 }
 
 export type YosysRTL = Parameters<typeof yosys2digitaljs>[0];

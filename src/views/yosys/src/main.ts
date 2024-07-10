@@ -7,8 +7,9 @@ import {vscode} from '../../vscode';
 import {GlobalStoreConnector} from './globalStore';
 import './main.css';
 import type {EditorMessage, ForeignViewMessage, GlobalStoreMessage, ViewMessage} from './messages';
-import type {YosysFile} from './types';
+import type {YosysFile, YosysRTL, YosysStats} from './types';
 import {type BaseViewer, DiagramViewer, StatsViewer} from './viewers';
+import { file } from './aliases/tmp';
 
 // Force bundler to include VS Code Webview UI Toolkit
 allComponents;
@@ -82,22 +83,33 @@ export class View {
     }
 
     private findViewer(): BaseViewer<YosysFile['data']> {
+        console.log("findViewer 6")
         if (!this.state.document) {
             throw new Error('No data to find viewer!');
         }
 
-        const fileData = JSON.parse(this.state.document) as YosysFile;
-        if (!fileData['type'] || !fileData['data']) {
-            throw new Error('File is missing type or data keys.');
+        if(this.state.document.indexOf("\"stat")>-1) { 
+            console.log("Stats Viewer")
+            return new StatsViewer(this, JSON.parse(this.state.document) as YosysStats);  
+        } else if(this.state.document.indexOf("\"modules")>-1) {
+            console.log("LUT Viewer")
+            return new DiagramViewer(this, JSON.parse(this.state.document) as YosysRTL);
+        } else {    
+            throw new Error(`Could not find viewer for type`);
         }
 
-        if (fileData['type'] === 'rtl' || fileData['type'] === 'luts') {
-            return new DiagramViewer(this, fileData['data']);
-        } else if (fileData['type'] === 'stats') {
-            return new StatsViewer(this, fileData['data']);
-        } else {
-            throw new Error(`Could not find viewer for type: ${fileData['type']}`);
-        }
+        // const statsData = fileData as YosysStats;
+        // if (!fileData['type'] || !fileData['data']) {
+        //     throw new Error('File is missing type or data keys.');
+        // }
+
+        // if (fileData['type'] === 'rtl' || fileData['type'] === 'luts') {
+        //     return new DiagramViewer(this, fileData['data']);
+        // } else if (fileData['type'] === 'stats') {
+        //     return new StatsViewer(this, fileData['data']);
+        // } else {
+        //     throw new Error(`Could not find viewer for type: ${fileData['type']}`);
+        // }
     }
 
     private renderDocument(isUpdate: boolean) {

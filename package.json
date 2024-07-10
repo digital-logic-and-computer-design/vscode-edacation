@@ -23,7 +23,7 @@
         "Visualization"
     ],
     "activationEvents": [
-        "onCommand:workbench.action.tasks.runTask"
+        "onStartupFinished"
     ],
     "main": "./dist/extension/extension.js",
     "browser": "./dist/extension/extension.js",
@@ -340,8 +340,8 @@
     "scripts": {
         "postinstall": "sed -i '' \"s/require('topsort');/require('topsort').default;/\" node_modules/yosys2digitaljs/dist/index.js",
         "run-in-browser": "vscode-test-web --browserType=chromium --extensionDevelopmentPath=. .",
-        "watch-web": "webpack --watch",
-        "compile-web": "tsc && webpack",
+        "watch-web": "webpack --watch --mode development --devtool eval-source-map",
+        "compile-web": "tsc && webpack --mode development --devtool eval-source-map",
         "package-web": "webpack --mode production --devtool hidden-source-map",
         "vscode:prepublish": "npm run package-web",
         "lint": "eslint ./src --ext ts",

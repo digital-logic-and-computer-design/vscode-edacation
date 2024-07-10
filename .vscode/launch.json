@@ -8,17 +8,24 @@
         {
             "name": "Run Extension ",
             "type": "extensionHost",
+            "debugWebviews": true,
             "debugWebWorkerHost": true,
             "request": "launch",
             "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
             "outFiles": ["${workspaceFolder}/dist/extension/**/*.js"],
-            "preLaunchTask": "npm: watch-web"
+            "preLaunchTask": "npm: compile-web",
+            "sourceMaps": true,
+            "sourceMapPathOverrides": {
+                "webpack:///./src/*": "${workspaceFolder}/dist/*",
+                "webpack:///src/*": "${workspaceFolder}/dist/*"
+            }
         },
         {
             "name": "Run Web Extension ",
             "type": "extensionHost",
             "debugWebWorkerHost": true,
             "request": "launch",
+            "sourceMaps": true,
             "args": ["--extensionDevelopmentPath=${workspaceFolder}", "--extensionDevelopmentKind=web"],
             "outFiles": ["${workspaceFolder}/dist/extension/**/*.js"],
             "preLaunchTask": "npm: watch-web"

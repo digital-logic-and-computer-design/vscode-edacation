@@ -24,7 +24,7 @@ const baseConfig = {
     performance: {
         hints: false
     },
-    devtool: 'nosources-source-map',
+    devtool: 'eval-source-map',
     infrastructureLogging: {
         level: 'log'
     }
