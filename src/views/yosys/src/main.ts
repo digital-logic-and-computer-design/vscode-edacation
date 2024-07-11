@@ -51,6 +51,7 @@ export class View {
             ...partialState
         };
         vscode.setState(this.state);
+        this.viewer?.setData(JSON.parse(this.state.document!) as YosysFile['data']);
     }
 
     private handleMessage(message: MessageEvent<EditorMessage | GlobalStoreMessage>) {
@@ -88,27 +89,12 @@ export class View {
         }
 
         if(this.state.document.indexOf("\"stat")>-1) { 
-            console.log("Stats Viewer")
             return new StatsViewer(this, JSON.parse(this.state.document) as YosysStats);  
         } else if(this.state.document.indexOf("\"modules")>-1) {
-            console.log("LUT Viewer")
             return new DiagramViewer(this, JSON.parse(this.state.document) as YosysRTL);
         } else {    
             throw new Error(`Could not find viewer for type`);
         }
-
-        // const statsData = fileData as YosysStats;
-        // if (!fileData['type'] || !fileData['data']) {
-        //     throw new Error('File is missing type or data keys.');
-        // }
-
-        // if (fileData['type'] === 'rtl' || fileData['type'] === 'luts') {
-        //     return new DiagramViewer(this, fileData['data']);
-        // } else if (fileData['type'] === 'stats') {
-        //     return new StatsViewer(this, fileData['data']);
-        // } else {
-        //     throw new Error(`Could not find viewer for type: ${fileData['type']}`);
-        // }
     }
 
     private renderDocument(isUpdate: boolean) {

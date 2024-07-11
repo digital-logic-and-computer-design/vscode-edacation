@@ -3,11 +3,15 @@ import type {ForeignViewMessage, ViewMessage} from '../messages';
 
 export abstract class BaseViewer<InitialData> {
     private readonly mainView: View;
-    protected readonly data: InitialData;
+    protected data: InitialData;
 
     constructor(mainView: View, initData: InitialData) {
         this.mainView = mainView;
         this.data = initData;
+    }
+
+    setData(data: InitialData) {
+        this.data = data;
     }
 
     abstract render(isUpdate: boolean): Promise<void>;

@@ -64,7 +64,7 @@ class RTLTerminalTask extends BaseYosysTerminalTask {
         let fileType: string;
         if (fileName === 'rtl.yosys.json') {
             fileType = 'rtl';
-        } else if (fileName === 'stats.yosys.json') {
+        } else if (fileName === 'stats.yosys.json' || fileName.endsWith('.stats.json')) {
             fileType = 'stats';
         } else {
             this.warn(`Output file "${fileName}" not recognized. It might not be compatible with EDAcation.`);

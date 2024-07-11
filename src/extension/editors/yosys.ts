@@ -96,7 +96,7 @@ export class YosysEditor extends BaseEditor {
         YosysEditor.activeViews.add(webview);
 
         if (!isDocumentChange) {
-            await vscode.commands.executeCommand('edacation-projects.focus');
+            // await vscode.commands.executeCommand('edacation-projects.focus');
         }
 
         await webview.postMessage({

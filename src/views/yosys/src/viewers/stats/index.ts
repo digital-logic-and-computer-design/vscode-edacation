@@ -20,7 +20,32 @@ export class StatsViewer extends BaseViewer<YosysStats> {
 
     constructor(mainView: View, initData: YosysStats) {
         super(mainView, initData);
+        // TODO Call buildModuleTree here rather than below(and silence linter complaints)
+        this.modules = buildModuleTree(this.data.modules);
+        if (!this.modules) {
+            throw new Error('No circuit modules found to display!');
+        }
 
+        this.moduleOverview = new ModuleOverviewGrid(this.modules);
+        this.setupConfigStore(this.moduleOverview);
+
+        this.moduleExplorer = new ModuleExplorerGrid(this.modules[0]);
+        this.setupConfigStore(this.moduleExplorer);
+
+        this.primitivesOverview = new PrimitivesOverviewGrid(this.modules);
+        this.setupConfigStore(this.primitivesOverview);
+
+        this.colorsList = new ColorOverviewList();
+
+        this.tabsContainer = new TabsContainer([
+            {id: 'overview', title: 'Overview', element: this.moduleOverview},
+            {id: 'explorer', title: 'Explorer', element: this.moduleExplorer},
+            {id: 'primitives', title: 'Primitives', element: this.primitivesOverview},
+            {id: 'colors', title: 'Element Colors', element: this.colorsList}
+        ]);
+    }
+
+    buildModuleTree() {
         this.modules = buildModuleTree(this.data.modules);
         if (!this.modules) {
             throw new Error('No circuit modules found to display!');
@@ -60,7 +85,7 @@ export class StatsViewer extends BaseViewer<YosysStats> {
             this.moduleExplorer.update();
 
             this.tabsContainer.focusTab('explorer');
-        }
+        } 
     }
 
     private setupConfigStore<K>(element: InteractiveDataGrid<unknown, K>) {
@@ -89,6 +114,8 @@ export class StatsViewer extends BaseViewer<YosysStats> {
             // All elements are dynamically resized so we don't need to redraw
             return;
         }
+        // Rebuild the modules
+        this.buildModuleTree();
         this.root.replaceChildren();
 
         const header = document.createElement('h1');
