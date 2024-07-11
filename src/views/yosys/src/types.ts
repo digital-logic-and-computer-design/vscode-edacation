@@ -9,8 +9,8 @@ export interface YosysModuleStats {
     num_port_bits: number;
     num_processes: number;
     num_pub_wires: number;
-    num_pub_wire_bits: number;
-    num_wire_bits: number;
+    num_pub_wire_bits: number;  // New field
+    num_wire_bits: number;      // New field
     num_wires: number;
 }
 

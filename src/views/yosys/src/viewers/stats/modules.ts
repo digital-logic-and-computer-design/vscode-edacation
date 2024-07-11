@@ -6,7 +6,9 @@ export enum ModuleStatId {
     processCount = 'processCount',
     cellCount = 'cellCount',
     wireCount = 'wireCount',
-    wireCountPub = 'wireCountPub'
+    wireCountPub = 'wireCountPub',
+    wireBitCountPub = 'wireBitCountPub',
+    wireBitCount = 'wireBitCount'
 }
 
 type ModuleStats = Record<ModuleStatId, number>;
@@ -29,6 +31,10 @@ export const getModuleStatName = (stat: ModuleStatId): string => {
             return 'Wires';
         case ModuleStatId.wireCountPub:
             return 'Wires (Pub.)';
+        case ModuleStatId.wireBitCountPub:
+            return 'Wire Bits (Pub.)';
+        case ModuleStatId.wireBitCount:
+            return 'Wire Bits';
     }
 };
 
@@ -102,7 +108,9 @@ export class Module {
             processCount: stats.num_processes,
             cellCount: stats.num_cells,
             wireCount: stats.num_wires,
-            wireCountPub: stats.num_pub_wires
+            wireCountPub: stats.num_pub_wires,
+            wireBitCountPub: stats.num_wire_bits,
+            wireBitCount: stats.num_pub_wire_bits
         };
         this._globalStats = Object.assign({}, this._stats);
 
