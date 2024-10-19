@@ -4,12 +4,12 @@ import type * as vscode from 'vscode';
 
 import {type Project} from '../projects/index.js';
 
-import {AnsiModifier, type TaskOutputFile, type TerminalMessage, TerminalMessageEmitter} from './messaging.js';
-import {ToolProvider} from './toolprovider.js';
+import {AnsiModifier, type TaskOutputFile, TerminalMessageEmitter} from './messaging.js';
+import {type ToolProvider} from './toolprovider.js';
 
 export interface TaskDefinition extends vscode.TaskDefinition {
     project: string;
-    targetId?: string;
+    targetId: string;
     uri?: vscode.Uri;
 }
 
@@ -48,7 +48,10 @@ export abstract class TerminalTask<WorkerOptions extends _WorkerOptions> extends
 
         this.toolProvider = toolProvider;
         // proxy all provider messages to terminal
-        this.toolProvider.onMessage(this.onProviderMessage.bind(this));
+        this.toolProvider.onMessage((msg) => {
+            if (this.isDisabled) return;
+            return this.fire(msg);
+        });
 
         this.isDisabled = false;
     }
@@ -67,28 +70,9 @@ export abstract class TerminalTask<WorkerOptions extends _WorkerOptions> extends
 
     abstract handleStart(project: Project): Promise<void>;
 
-    abstract handleEnd(project: Project, outputFiles: TaskOutputFile[]): Promise<void>;
+    abstract handleEnd(project: Project, workerOptions: WorkerOptions, outputFiles: TaskOutputFile[]): Promise<void>;
 
-    private onProviderMessage(message: TerminalMessage) {
-        if (this.isDisabled) return;
-
-        switch (message.type) {
-            case 'println': {
-                this.println(message.line, message.stream);
-                break;
-            }
-            case 'done': {
-                this.done(message.outputFiles);
-                break;
-            }
-            case 'error': {
-                this.error(message.error);
-                break;
-            }
-        }
-    }
-
-    async execute(project: Project, targetId: string) {
+    async execute(project: Project, targetId: string): Promise<WorkerOptions> {
         const workerOptions = this.getWorkerOptions(project, targetId);
 
         const command = this.getInputCommand(workerOptions);
@@ -115,18 +99,23 @@ export abstract class TerminalTask<WorkerOptions extends _WorkerOptions> extends
         }
         this.println();
 
-        // Print the tool provider and command to execute
-        this.println(`Tool command (${this.toolProvider.getName()}):`, undefined, AnsiModifier.BOLD);
-        this.println(`  ${command} ${args.join(' ')}`);
-        this.println();
-
-        await this.toolProvider.run({
+        this.toolProvider.setRunContext({
             project,
             command,
             args,
             inputFiles,
             outputFiles
         });
+
+        // Print the tool provider and command to execute
+        const toolName = await this.toolProvider.getName();
+        this.println(`Tool command (${toolName}):`, undefined, AnsiModifier.BOLD);
+        this.println(`  ${command} ${args.join(' ')}`);
+        this.println();
+
+        await this.toolProvider.execute();
+
+        return workerOptions;
     }
 
     cleanup() {

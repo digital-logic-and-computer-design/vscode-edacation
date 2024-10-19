@@ -1,7 +1,7 @@
 import {type WorkerOptions as _WorkerOptions} from 'edacation';
 import * as vscode from 'vscode';
 
-import type {Project, Projects} from '../projects/index.js';
+import {Project, type Projects} from '../projects/index.js';
 import {encodeText, ensureEndOfLine} from '../util.js';
 
 import {BaseTaskProvider} from './base.js';
@@ -13,6 +13,7 @@ const PROJECT_PATTERN = '**/*.edaproject';
 interface JobDefinition<WorkerOptions extends _WorkerOptions> {
     task: TerminalTask<WorkerOptions>;
     targetId: string;
+    workerOptions?: WorkerOptions;
 }
 
 export abstract class TaskProvider extends BaseTaskProvider {
@@ -53,6 +54,7 @@ export abstract class TaskProvider extends BaseTaskProvider {
             task.scope,
             task.definition.uri as vscode.Uri,
             task.definition.project as string,
+            task.definition.targetId as string,
             task.definition as TaskDefinition
         );
     }
@@ -78,7 +80,14 @@ export abstract class TaskProvider extends BaseTaskProvider {
         for (const folder of vscode.workspace.workspaceFolders) {
             const paths = await vscode.workspace.findFiles(PROJECT_PATTERN);
             for (const path of paths) {
-                tasks.push(this.getTask(folder, path, vscode.workspace.asRelativePath(path.fsPath, false)));
+                const project = await Project.load(this.projects, path);
+                const targets = project.getConfiguration().targets;
+
+                for (const target of targets) {
+                    tasks.push(
+                        this.getTask(folder, path, vscode.workspace.asRelativePath(path.fsPath, false), target.id)
+                    );
+                }
             }
         }
 
@@ -89,11 +98,13 @@ export abstract class TaskProvider extends BaseTaskProvider {
         folder: vscode.WorkspaceFolder,
         uri: vscode.Uri,
         project: string,
-        additionalDefinition?: TaskDefinition
+        targetId: string,
+        additionalDefinition?: Partial<TaskDefinition>
     ): vscode.Task {
         const definition: TaskDefinition = {
             type: this.getTaskType(),
             project,
+            targetId,
             uri,
 
             ...additionalDefinition
@@ -216,6 +227,12 @@ export class TaskTerminal<WorkerOptions extends _WorkerOptions> implements vscod
             }
         }
 
+        const projectConfig = this.curProject.getConfiguration();
+        if (projectConfig.targets.length === 0) {
+            await this.error(new Error('The current project has no targets defined!'));
+            return;
+        }
+
         if (this.tasks.length === 0 || prevExitCode !== 0) {
             this.curJob = null;
             this.curProject = null;
@@ -226,9 +243,11 @@ export class TaskTerminal<WorkerOptions extends _WorkerOptions> implements vscod
 
         this.curJob = {
             task: this.tasks[0],
-            targetId: this.definition.targetId ?? this.curProject.getConfiguration().targets[0].id
+            targetId: this.definition.targetId ?? projectConfig.targets[0].id
         };
         this.tasks.splice(0, 1);
+
+        this.println(`Executing task for target "${this.definition.targetId}"`);
 
         // eslint-disable-next-line @typescript-eslint/no-misused-promises
         this.curJob.task.onMessage(this.handleMessage.bind(this, this.curJob));
@@ -239,7 +258,7 @@ export class TaskTerminal<WorkerOptions extends _WorkerOptions> implements vscod
 
             await this.curJob.task.handleStart(this.curProject);
 
-            await this.curJob.task.execute(this.curProject, this.curJob.targetId);
+            this.curJob.workerOptions = await this.curJob.task.execute(this.curProject, this.curJob.targetId);
         } catch (err) {
             await this.error(err);
         }
@@ -264,6 +283,10 @@ export class TaskTerminal<WorkerOptions extends _WorkerOptions> implements vscod
                     break;
                 }
                 case 'done': {
+                    if (!job.workerOptions) {
+                        throw new Error('Task did not deposit worker options, cannot handle finish');
+                    }
+
                     const outputFiles = message.outputFiles || [];
                     for (const file of outputFiles) {
                         // Construct URI if missing
@@ -282,7 +305,7 @@ export class TaskTerminal<WorkerOptions extends _WorkerOptions> implements vscod
                     const uris = outputFiles.map((outp) => outp.uri).filter((outp): outp is vscode.Uri => !!outp);
                     await this.curProject.addOutputFileUris(uris, job.targetId);
 
-                    await job.task.handleEnd(this.curProject, outputFiles);
+                    await job.task.handleEnd(this.curProject, job.workerOptions, outputFiles);
                     job.task.cleanup();
 
                     await this.exit(0);
