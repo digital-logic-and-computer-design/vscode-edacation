@@ -1,17 +1,18 @@
 {
-    "publisher": "edacation",
-    "name": "edacation",
+    "publisher": "bsiever",
+    "name": "edacation-dlacd",
     "displayName": "EDAcation",
     "description": "Learning environment for digital hardware design with Yosys and nextpnr.",
-    "repository": "github:EDAcation/vscode-edacation",
+    "repository": "github:digital-logic-and-computer-design/vscode-edacation",
     "license": "MIT",
-    "version": "0.5.7",
+    "version": "0.5.8",
     "contributors": [
         "Danielle Huisman <danielle@huisman.me> (https://github.com/DanielleHuisman)",
         "Daan Middelkoop <daantje676@gmail.com>",
         "Bram Wesselink <wesselinkbram@gmail.com>",
         "Mike Almeloo <git@mikealmel.ooo>",
-        "Hendrik Folmer <h.h.folmer@utwente.nl>"
+        "Hendrik Folmer <h.h.folmer@utwente.nl>", 
+        "Bill Siever <bsiever@gmail.com>; Hacked for just stats view"
     ],
     "engines": {
         "vscode": "^1.73.0"
@@ -33,9 +34,6 @@
                 "viewType": "edacation.yosys",
                 "displayName": "Yosys",
                 "selector": [
-                    {
-                        "filenamePattern": "*.yosys.json"
-                    },
                     {
                         "filenamePattern": "*.stats.json"
                     }
