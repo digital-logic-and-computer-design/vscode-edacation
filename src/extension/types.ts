@@ -29,6 +29,13 @@ interface ViewMessageChange {
 interface ViewMessageCommand {
     type: 'command';
     command: string;
+    args?: [];
+}
+
+interface ViewMessageChangeTLM {
+    type: 'changeTlm';
+    module: string;
+    targetId: string;
 }
 
 interface ViewMessageRequestSave {
@@ -43,6 +50,7 @@ interface ViewMessageRequestSave {
 export type ViewMessage =
     | ViewMessageReady
     | ViewMessageCommand
+    | ViewMessageChangeTLM
     | ViewMessageChange
     | MessageBroadcast
     | ViewMessageRequestSave;

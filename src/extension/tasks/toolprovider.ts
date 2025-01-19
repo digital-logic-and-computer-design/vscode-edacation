@@ -5,7 +5,7 @@ import * as node from '../../common/node-modules.js';
 import {UniversalWorker} from '../../common/universal-worker.js';
 import {type Project} from '../projects/index.js';
 
-import {ManagedTool} from './managedtool.js';
+import {ManagedTool, type NativeToolExecutionOptions} from './managedtool.js';
 import {type TaskOutputFile, TerminalMessageEmitter} from './messaging.js';
 import type {TaskIOFile} from './task.js';
 
@@ -18,10 +18,11 @@ interface Context {
     outputFiles: TaskIOFile[];
 }
 
-type ToolConfigOption = 'native-managed' | 'native-host' | 'web';
+type ToolConfigOption = 'auto' | 'native-managed' | 'native-host' | 'web';
 
 export abstract class ToolProvider extends TerminalMessageEmitter {
     protected readonly extensionContext: vscode.ExtensionContext;
+    protected ctx: Context | null = null;
 
     constructor(extensionContext: vscode.ExtensionContext) {
         super();
@@ -29,13 +30,22 @@ export abstract class ToolProvider extends TerminalMessageEmitter {
         this.extensionContext = extensionContext;
     }
 
-    abstract getName(): string;
+    abstract getName(): Promise<string>;
 
-    abstract run(ctx: Context): Promise<void>;
+    protected abstract run(ctx: Context): Promise<void>;
+
+    setRunContext(ctx: Context) {
+        this.ctx = ctx;
+    }
+
+    async execute(): Promise<void> {
+        if (!this.ctx) throw new Error('No run context available!');
+        return await this.run(this.ctx);
+    }
 }
 
 export class WebAssemblyToolProvider extends ToolProvider {
-    getName() {
+    async getName(): Promise<string> {
         return 'WebAssembly';
     }
 
@@ -136,7 +146,7 @@ abstract class NativeToolProvider extends ToolProvider {
         };
     }
 
-    protected abstract getEntrypoint(command: string): Promise<string | null>;
+    protected abstract getExecutionOptions(command: string): Promise<NativeToolExecutionOptions | null>;
 
     async run(ctx: Context): Promise<void> {
         // Write generated input files so the native process can load them
@@ -154,15 +164,21 @@ abstract class NativeToolProvider extends ToolProvider {
             return;
         }
 
-        const entrypoint = await this.getEntrypoint(ctx.command);
-        if (!entrypoint) {
-            this.error('No entrypoint available. Aborting.');
+        const execOptions = await this.getExecutionOptions(ctx.command);
+        if (!execOptions) {
+            this.error('Native tool is unavailable. Aborting.');
             return;
         }
 
-        const proc = (await node.childProcess()).spawn(entrypoint, ctx.args, {
-            cwd: ctx.project.getRoot().fsPath
-        });
+        const spawnArgs = {
+            cwd: ctx.project.getRoot().fsPath,
+            env: process.env
+        };
+        if (execOptions.path) {
+            spawnArgs['env']['PATH'] = execOptions.path;
+        }
+
+        const proc = node.childProcess().spawn(execOptions.entrypoint, ctx.args, spawnArgs);
 
         proc.on('exit', this.onProcessExit.bind(this, ctx));
         proc.on('error', this.onProcessError.bind(this));
@@ -218,38 +234,82 @@ abstract class NativeToolProvider extends ToolProvider {
 }
 
 export class ManagedToolProvider extends NativeToolProvider {
-    getName(): string {
+    async getName(): Promise<string> {
         return 'Native - Managed';
     }
 
-    async getEntrypoint(command: string): Promise<string | null> {
+    async getExecutionOptions(command: string): Promise<NativeToolExecutionOptions | null> {
         const tool = new ManagedTool(this.extensionContext, command);
-        const entrypoint = await tool.getEntrypoint();
+        const options = await tool.getExecutionOptions();
 
         // If already installed & valid, just return here
-        if (entrypoint) return entrypoint;
+        if (options) return options;
 
-        await vscode.commands.executeCommand('edacation.installTool', tool.getName());
+        this.println('Installing native tool...\n');
 
-        return await tool.getEntrypoint();
+        await vscode.commands.executeCommand('edacation.installTool', tool.getId());
+
+        return await tool.getExecutionOptions();
     }
 }
 
 export class HostToolProvider extends NativeToolProvider {
-    getName(): string {
+    async getName(): Promise<string> {
         return 'Native - Host';
     }
 
-    async getEntrypoint(command: string): Promise<string | null> {
-        // Host tools should be installed to PATH. Just return the command here - the OS should resolve it.
-        return command;
+    async getExecutionOptions(command: string): Promise<NativeToolExecutionOptions | null> {
+        const entrypoint = await node.which()(command, {nothrow: true});
+        if (!entrypoint) return null;
+
+        return {entrypoint};
+    }
+}
+
+export class AutomaticToolProvider extends ToolProvider {
+    private toolProvider: ToolProvider | null = null;
+
+    async getName(): Promise<string> {
+        if (!this.ctx) return 'Automatic';
+
+        const provider = await this.getToolProvider(this.ctx.command);
+        return `Automatic [${await provider.getName()}]`;
+    }
+
+    private async getToolProvider(command: string): Promise<ToolProvider> {
+        if (this.toolProvider) return this.toolProvider;
+
+        // Always use Web provider in non-node environments
+        const webProvider = new WebAssemblyToolProvider(this.extensionContext);
+        if (!node.isAvailable()) return webProvider;
+
+        // Use host provider if tool is installed
+        const hostProvider = new HostToolProvider(this.extensionContext);
+        if (await hostProvider.getExecutionOptions(command)) return hostProvider;
+
+        // Use managed provider, unless installation somehow fails
+        const managedProvider = new ManagedToolProvider(this.extensionContext);
+        if (await managedProvider.getExecutionOptions(command)) return managedProvider;
+
+        // Fall back to web provider
+        return webProvider;
+    }
+
+    async run(ctx: Context): Promise<void> {
+        const provider = await this.getToolProvider(ctx.command);
+        provider.onMessage(this.fire.bind(this));
+
+        provider.setRunContext(ctx);
+        return await provider.execute();
     }
 }
 
 export const getConfiguredProvider = (context: vscode.ExtensionContext): ToolProvider => {
     const provider = vscode.workspace.getConfiguration('edacation').get('toolProvider') as ToolConfigOption;
 
-    if (provider === 'native-managed') {
+    if (provider === 'auto') {
+        return new AutomaticToolProvider(context);
+    } else if (provider === 'native-managed') {
         return new ManagedToolProvider(context);
     } else if (provider === 'native-host') {
         return new HostToolProvider(context);

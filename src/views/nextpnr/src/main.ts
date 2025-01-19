@@ -1,7 +1,7 @@
 import '@vscode/codicons/dist/codicon.css';
 import {allComponents} from '@vscode/webview-ui-toolkit/dist/toolkit.js';
 import {getElementGroups} from 'edacation';
-import nextpnrViewer from 'nextpnr-viewer';
+import {NextPNRViewer} from 'nextpnr-viewer';
 
 import {vscode} from '../../vscode';
 
@@ -9,6 +9,11 @@ import './main.css';
 
 // Force bundler to include VS Code Webview UI Toolkit
 allComponents;
+
+// List supported chips (family: [device])
+const SUPPORTED = <const> {
+    ecp5: ['25k', '45k', '85k']
+};
 
 interface State {
     document?: string;
@@ -21,11 +26,28 @@ interface MessageDocument {
 
 type Message = MessageDocument;
 
+// TODO: export from nextpnr-viewer
+interface Chip<Family extends keyof typeof SUPPORTED> {
+    family: Family;
+    device: typeof SUPPORTED[Family][number];
+}
+type SupportedChip = Chip<keyof typeof SUPPORTED>
+
+interface NextpnrJSON {
+    creator: string;
+    modules: any;
+}
+
+interface NextpnrFileFormat {
+    chip: SupportedChip;
+    data: NextpnrJSON;
+}
+
 class View {
     private readonly root: HTMLDivElement;
     private state: State;
 
-    private viewer?: ReturnType<typeof nextpnrViewer>;
+    private viewer?: NextPNRViewer;
 
     private cellColors: Record<string, string> = {};
 
@@ -106,9 +128,46 @@ class View {
             }
 
             // Parse nextpnr document from JSON string
-            const json = JSON.parse(this.state.document);
+            // Support old file format as well (raw NextpnrJSON)
+            const json = JSON.parse(this.state.document) as NextpnrFileFormat | NextpnrJSON;
 
+            // Deduce exact chip to render
+            let chip: SupportedChip;
+            let data: NextpnrJSON;
+            if ('chip' in json) {
+                chip = {
+                    family: json.chip.family,
+                    device: json.chip.device
+                };
+                data = json.data;
+            } else {
+                // Older versions of the extension simply defaulted to ecp5-25k
+                chip = {
+                    family: 'ecp5',
+                    device: '25k'
+                }
+                data = json;
+            }
+
+            // Verify if chip is actually supported
+            if (!(SUPPORTED[chip.family] ?? []).includes(chip.device)) {
+                let errorMsg = `The configured chip (${chip.family} ${chip.device}) is currently not supported by the Nextpnr viewer.\n\n`
+                errorMsg += 'If you want to use the viewer, please use one of the following chip configurations:\n'
+                
+                for (const [family, devices] of Object.entries(SUPPORTED)) {
+                    errorMsg += `${family}:\n`;
+                    for (const device of devices) {
+                        errorMsg += `  - ${device}\n`;
+                    }
+                }
+
+                this.renderError(errorMsg);
+                return;
+            }
+
+            let didCreateViewer = false;
             if (!this.viewer) {
+                didCreateViewer = true;
                 // Clear root
                 this.root.replaceChildren();
 
@@ -118,15 +177,22 @@ class View {
                 // Render viewer
                 const elementViewer = document.createElement('div');
                 this.root.appendChild(elementViewer);
-                this.viewer = nextpnrViewer(elementViewer, {
+                this.viewer = new NextPNRViewer(elementViewer, {
                     width,
                     height,
-                    cellColors: this.cellColors
+                    cellColors: this.cellColors,
+                    chip
                 });
             }
 
             // Render nextpnr document
-            this.viewer.showJson(json);
+            const viewer = this.viewer;
+            viewer.showJson(JSON.stringify(data)).then(() => {
+                // Delay first render until after showJson is called, this allows for internal optimizations
+                if (didCreateViewer) {
+                    viewer.render();
+                }
+            });
         } catch (err) {
             this.handleError(err);
         }

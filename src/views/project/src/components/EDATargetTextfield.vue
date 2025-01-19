@@ -1,9 +1,6 @@
 <script lang="ts">
+import type {TextField} from '@vscode/webview-ui-toolkit';
 import {
-    getNextpnrDefaultOptions,
-    getNextpnrOptions,
-    getYosysDefaultOptions,
-    getYosysOptions,
     type NextpnrConfiguration,
     type NextpnrOptions,
     type NextpnrTargetConfiguration,
@@ -12,6 +9,10 @@ import {
     type YosysConfiguration,
     type YosysOptions,
     type YosysTargetConfiguration,
+    getNextpnrDefaultOptions,
+    getNextpnrOptions,
+    getYosysDefaultOptions,
+    getYosysOptions
 } from 'edacation';
 import {type PropType, defineComponent} from 'vue';
 
@@ -33,6 +34,10 @@ export default defineComponent({
         configName: {
             type: String,
             required: true
+        },
+        placeholder: {
+            type: String,
+            required: false
         }
     },
     data() {
@@ -73,17 +78,17 @@ export default defineComponent({
 
             if (!targetId) {
                 // Default configuration
-                if (this.workerId === 'yosys') return getYosysDefaultOptions(projectConfig)
-                if (this.workerId === 'nextpnr') return getNextpnrDefaultOptions(projectConfig)
+                if (this.workerId === 'yosys') return getYosysDefaultOptions(projectConfig);
+                if (this.workerId === 'nextpnr') return getNextpnrDefaultOptions(projectConfig);
                 return null;
             } else {
                 // Target configuration
-                if (this.workerId === 'yosys') return getYosysOptions(projectConfig, targetId)
-                if (this.workerId === 'nextpnr') return getNextpnrOptions(projectConfig, targetId)
+                if (this.workerId === 'yosys') return getYosysOptions(projectConfig, targetId);
+                if (this.workerId === 'nextpnr') return getNextpnrOptions(projectConfig, targetId);
                 return null;
             }
         },
-        effectiveConfig(): boolean | undefined {
+        effectiveConfig(): string | undefined {
             if (!this.effectiveOptions) {
                 return undefined;
             }
@@ -114,14 +119,13 @@ export default defineComponent({
             return true;
         },
 
-        handleCheckboxChange(event: Event) {
+        handleTextfieldChange(event: Event) {
             if (!event.target || !this.ensureConfig()) {
                 return;
             }
 
-            (this.options as Record<string, boolean | undefined>)[this.configId] = (
-                event.target as HTMLInputElement
-            ).checked;
+            (this.options as Record<string, string | undefined>)[this.configId] =
+                (event.target as TextField).currentValue || undefined;
         }
     }
 });
@@ -129,6 +133,8 @@ export default defineComponent({
 
 <template>
     <div>
-        <vscode-checkbox :checked="effectiveConfig" @change="handleCheckboxChange">{{ configName }}</vscode-checkbox>
+        <vscode-text-field :placeholder="placeholder" :value="effectiveConfig" @input="handleTextfieldChange">
+            {{ configName }}
+        </vscode-text-field>
     </div>
 </template>

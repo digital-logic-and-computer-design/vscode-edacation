@@ -19,7 +19,7 @@ const baseConfig = {
     entry: {},
 
     externals: {
-        vscode: 'commonjs vscode' // ignored because it doesn't exist
+        vscode: 'commonjs vscode'
     },
     performance: {
         hints: false
@@ -33,19 +33,13 @@ const baseConfig = {
 /** @type WebpackConfig */
 const extensionConfig = Object.assign({}, baseConfig, {
     entry: {
-        extension: './src/extension/index.ts',
-        'test/suite/index': './src/extension/test/suite/index.ts'
+        extension: './src/extension/index.ts'
     },
     output: {
         filename: '[name].js',
         path: path.join(currentDirectory, 'dist', 'extension'),
         libraryTarget: 'commonjs',
         devtoolModuleFilenameTemplate: '../../[resource-path]'
-    },
-    externals: {
-        vscode: 'commonjs vscode', // ignored because it doesn't exist
-        child_process: 'child_process',
-        fs: 'fs'
     },
     resolve: {
         mainFields: ['browser', 'module', 'main'],
@@ -58,6 +52,11 @@ const extensionConfig = Object.assign({}, baseConfig, {
             assert: 'assert',
             path: 'path-browserify'
         }
+    },
+    externals: {
+        vscode: 'commonjs vscode',
+        fs: 'fs',
+        'fs/promises': 'fs/promises'
     },
     module: {
         rules: [
