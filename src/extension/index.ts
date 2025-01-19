@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 
 import * as node from '../common/node-modules.js';
 
-import * as commands from './commands/index.js';
-import * as editors from './editors/index.js';
+// import * as commands from './commands/index.js';
+// import * as editors from './editors/index.js';
 import {Projects} from './projects/index.js';
 import {YosysEditor} from './editors/yosys.js';
 
